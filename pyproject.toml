@@ -1,14 +1,39 @@
 [project]
-name = "tatoeba-daexampledicts"
+name = "tatoeba-examples-dalang"
 version = "0.1.0"
-description = "Add your description here"
+description = "Example sentences from the Tatoeba corpus"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
-    "pytest>=9.0.3",
+    "dalang-dict-utils",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.3",
+    "pyright>=1.1.400",
+    "pytest>=8.3",
+    "ruff>=0.11",
 ]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+dalang-dict-utils = { git = "https://github.com/dariyooo/dalang-dict-utils", tag = "v0.3.1" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+# Vendored third-party code stays as it was copied
+extend-exclude = ["vendored_sources"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pyright]
+include = ["build.py", "tatoeba_examples", "tests"]
+pythonVersion = "3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

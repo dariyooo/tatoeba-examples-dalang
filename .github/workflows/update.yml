@@ -1,0 +1,13 @@
+name: Update
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    uses: dariyooo/dalang-dict-utils/.github/workflows/dict-update.yml@v0.3.1

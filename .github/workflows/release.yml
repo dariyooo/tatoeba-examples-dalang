@@ -1,0 +1,16 @@
+name: Release
+
+on:
+  push:
+    tags: ["*"]
+
+permissions:
+  contents: write
+
+jobs:
+  ci:
+    uses: dariyooo/dalang-dict-utils/.github/workflows/dict-ci.yml@v0.3.1
+
+  release:
+    needs: ci
+    uses: dariyooo/dalang-dict-utils/.github/workflows/dict-release.yml@v0.3.1
