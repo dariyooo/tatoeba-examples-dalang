@@ -7,4 +7,4 @@ on:
 
 jobs:
   ci:
-    uses: dariyooo/dalang-dict-utils/.github/workflows/dict-ci.yml@v0.3.1
+    uses: dariyooo/dalang-dict-utils/.github/workflows/dict-ci.yml@v0.3.2

@@ -1,7 +1,7 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: v0.3.1
+_commit: v0.3.2
 _src_path: gh:dariyooo/dalang-dict-utils
-dalang_dict_utils_tag: v0.3.1
+dalang_dict_utils_tag: v0.3.2
 description: Example sentences from the Tatoeba corpus
 github_owner: dariyooo
 module_name: tatoeba_examples
