@@ -1,74 +1,78 @@
-# Tatoeba-DaExampleDicts
+# tatoeba-examples-dalang
 
-Repo to parse the Tatoeba corpus and extract DaDb Example Dicts for every language.
+Example sentences from the [Tatoeba](https://tatoeba.org) corpus, one dictionary per language.
+
+Every sentence comes with the group ids of its translations (the sentences of other languages it is linked to),
+links to its audio recordings, its review score and the self-reported skill of its author in the language.
+Duplicates (the same sentence after NFKC normalization) are merged.
+
+These are example dictionaries (`dakanji-examples`), they do not work in Yomitan.
+
+## Assets
+
+Released weekly for the 25 languages with the most sentences and Japanese, Mandarin and Korean:
+
+| Asset | Content |
+|---|---|
+| `tatoeba-examples-dalang-{lang}.zip` | all sentences of `{lang}` |
+| `tatoeba-examples-dalang-{lang}-main-{main}.zip` | only the sentences of `{lang}` with a translation to `{main}` (`jpn`, `cmn`, `kor`) |
+
+`{lang}` is the ISO 639-3 code Tatoeba uses, e.g. `eng`, `jpn`.
+The `-main-` variants are for learners of the main language, e.g. `tatoeba-examples-dalang-eng-main-jpn` holds the
+English sentences that have a Japanese translation.
+
+## Sources
+
+The Tatoeba [exports](https://downloads.tatoeba.org/exports/), locked to their download date in `sources.lock.json`:
+`sentences_detailed`, `links`, `sentences_with_audio`, `user_languages` and `users_sentences`.
+Tatoeba updates them weekly, the *Update* workflow picks them up and releases on changes.
 
 ## Installation
 
-Make sure [uv](https://github.com/astral-sh/uv) is installed on your system and run:
+Make sure [uv](https://github.com/astral-sh/uv) is installed on your system and run
 
-```bash
+``` bash
 uv sync
 ```
 
 ## Usage
 
-To fetch and convert **every** language in the database:
-
-```bash
-uv run tatoeba_to_dadb.py
+``` bash
+uv run build.py
 ```
 
-### Command Line Arguments
+This downloads the exports to `tmp/sources/` and creates the dictionaries in `out/`
+(`.zip`, `.index.json` and `.manifest.json` each). The uncompressed dictionaries are kept in `tmp/` for inspection.
 
-* `--langs` (`-l`): Space-separated list of the language codes (ISO 639-3) that should be extracted. If omitted, builds all languages.
-* `--main`: Can be used to specify a main language, this will be used to filter out examples from all other languages that do not have a translation in the specified `--main` language
-* `--delete-unzipped`: Delete the raw, unzipped dictionary folders in the output directory after they have been successfully packaged into `.zip` archives. (Defaults to keeping them).
-* `--include-tags`: Include tatoeba tag data (very low quality)
+## Development
 
-### Examples
-
-**Standard run (all languages):**
-```bash
-uv run tatoeba_to_dadb.py
+``` bash
+uv run ruff check .          # lint
+uv run ruff format .         # format
+uv run pyright               # type check
+uv run pytest                # tests
 ```
 
-**Extract specific languages and clean up raw files:**
-```bash
-uv run tatoeba_to_dadb.py --langs eng jpn deu --delete-unzipped
+The tests run the pipeline on a subset of the exports in `tests/data/`.
+
+The repo follows the [DaLang dictionary repo standard](https://github.com/dariyooo/dalang-dict-utils/blob/main/docs/repo-standard.md),
+update the shared setup with `uvx copier update --trust`.
+
+## Release
+
+The *Update* workflow releases weekly when the sources changed. To release by hand, push a tag with today's date:
+
+``` bash
+git tag 2026-11-01 && git push origin 2026-11-01
 ```
 
-**Extract the top 25 most frequent languages:**
-```bash
-uv run tatoeba_to_dadb.py --top 25
-```
+The *Release* workflow runs the checks, builds the dictionaries with the tag as revision and publishes them as the GitHub release of the tag.
+To redo a release, push the tag again with `git tag -f 2026-11-01 && git push -f origin 2026-11-01`.
+Tatoeba replaces its exports in place, so once it published new ones a tag release fails on the locked sha256,
+run the *Update* workflow then.
+Installed dictionaries pick up new releases through "Check for updates".
 
-**Filter for translations related to a main language (e.g., only English-linked sentences):**
-```bash
-uv run tatoeba_to_dadb.py --main eng
-```
+## License
 
-**Include Tatoeba tags (noisy data) and use custom directories:**
-```bash
-uv run tatoeba_to_dadb.py --include-tags --tmp-dir ./custom_tmp --out-dir ./custom_out
-```
-
-**Full production-style filtered release:**
-```bash
-uv run tatoeba_to_dadb.py --langs eng jpn --main eng --delete-unzipped
-```
-
-## Output Location
-
-Generated dictionaries are saved to the `/out/` directory as ready-to-import `.zip` files. Temporary Tatoeba data downloads are cached in the `/tmp/` directory so they don't have to be re-downloaded if you run the script multiple times within 24 hours.
-
-## Format / Schema Used
-
-The output follows [DaKanji example bank schema](https://github.com/CaptainDario/DaKanji/blob/refactor-v4/dart_packages/da_db/schemata/examples/example_banks/README.md).
-
-## Tests
-
-Run the tests with
-
-```bash
-uv run pytest tests
-```
+Sentences and translations by the [Tatoeba](https://tatoeba.org) contributors,
+[CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/). Audio recordings keep the license of their recording.
