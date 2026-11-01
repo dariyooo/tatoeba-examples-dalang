@@ -7,110 +7,21 @@ collapsed 12k+ unrelated sentences into one cluster.
 
 from __future__ import annotations
 
-import argparse
 import io
 import json
 import os
-import shutil
-import socket
 import sys
 import tarfile
-import time
 import unicodedata
-import urllib.request
-import zipfile
 from array import array
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
+from pathlib import Path
 
-BASE_URL = "https://downloads.tatoeba.org/exports/"
 CHUNK_SIZE = 25_000
-GITHUB_USER = "CaptainDario"
-GITHUB_REPO = "Tatoeba-DaDb"
 
 
 # --- I/O ---
-
-def download_data(include_tags: bool, tmp_dir: str) -> None:
-    """Fetch the Tatoeba exports into ``tmp_dir``, cached for 24h."""
-    os.makedirs(tmp_dir, exist_ok=True)
-    one_day = 24 * 60 * 60
-
-    def download_with_retry(url: str, dest: str, retries: int = 10,
-                            connect_timeout: int = 20,
-                            min_speed_bps: int = 50 * 1024,
-                            speed_window: int = 15) -> None:
-        # Throughput watchdog: Tatoeba's CDN stalls at a few KB/s without
-        # closing the connection, so a socket timeout alone doesn't help.
-        CHUNK = 1024 * 64
-        for attempt in range(1, retries + 1):
-            try:
-                resume_pos = os.path.getsize(dest) if os.path.exists(dest) else 0
-                headers = {"User-Agent": "Mozilla/5.0"}
-                if resume_pos:
-                    headers["Range"] = f"bytes={resume_pos}-"
-                req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=connect_timeout) as resp:
-                    if resp.status == 200 and resume_pos:
-                        resume_pos = 0  # server ignored Range
-                    total = resume_pos + int(resp.headers.get("Content-Length", 0))
-                    downloaded = resume_pos
-                    last_pct = -1
-                    window_start = time.monotonic()
-                    window_bytes = 0
-                    mode = "ab" if resume_pos else "wb"
-                    with open(dest, mode) as out:
-                        while True:
-                            chunk = resp.read(CHUNK)
-                            if not chunk:
-                                break
-                            out.write(chunk)
-                            downloaded += len(chunk)
-                            window_bytes += len(chunk)
-                            elapsed = time.monotonic() - window_start
-                            if elapsed >= speed_window:
-                                speed = window_bytes / elapsed
-                                if speed < min_speed_bps:
-                                    raise TimeoutError(
-                                        f"speed {speed/1024:.1f} KB/s below "
-                                        f"minimum {min_speed_bps // 1024} KB/s"
-                                    )
-                                window_start = time.monotonic()
-                                window_bytes = 0
-                            if total > 0:
-                                pct = min(100, int(downloaded * 100 / total))
-                                if pct != last_pct:
-                                    last_pct = pct
-                                    print(f"   -> Downloading: {pct}%")
-                return
-            except (OSError, TimeoutError, socket.timeout) as exc:
-                size = os.path.getsize(dest) if os.path.exists(dest) else 0
-                print(f"   -> Attempt {attempt}/{retries} failed at {size} bytes: {exc}")
-                if attempt == retries:
-                    raise
-                wait = min(5 * attempt, 30)
-                print(f"   -> Resuming in {wait}s...")
-                time.sleep(wait)
-
-    targets = {
-        os.path.join(tmp_dir, "sentences_detailed.tar.bz2"): BASE_URL + "sentences_detailed.tar.bz2",
-        os.path.join(tmp_dir, "links.tar.bz2"):              BASE_URL + "links.tar.bz2",
-        os.path.join(tmp_dir, "sentences_with_audio.tar.bz2"): BASE_URL + "sentences_with_audio.tar.bz2",
-        os.path.join(tmp_dir, "user_languages.tar.bz2"):     BASE_URL + "user_languages.tar.bz2",
-        os.path.join(tmp_dir, "users_sentences.csv"):        BASE_URL + "users_sentences.csv",
-    }
-    if include_tags:
-        targets[os.path.join(tmp_dir, "tags.tar.bz2")] = BASE_URL + "tags.tar.bz2"
-
-    for fname, url in targets.items():
-        if os.path.exists(fname):
-            if (time.time() - os.path.getmtime(fname)) < one_day:
-                print(f"[CACHE] '{fname}' is valid.")
-                continue
-            os.remove(fname)  # keeping stale file triggers HTTP 416 on Range resume
-        print(f"[DOWNLOAD] Fetching '{fname}'...")
-        download_with_retry(url, fname)
-        print()
 
 
 def stream_tar_bz2(filename: str) -> Iterator[str]:
@@ -126,6 +37,7 @@ def stream_tar_bz2(filename: str) -> Iterator[str]:
 
 
 # --- Parsers (one per Tatoeba export) ---
+
 
 def parse_user_skills(tmp_dir: str) -> dict[tuple[str, str], str]:
     print("1. Parsing user skills...")
@@ -216,7 +128,7 @@ class LinkGraph:
 
     def neighbors(self, sid: int) -> array:
         if 0 <= sid <= self._max_sid:
-            return self._neighbors[self._offsets[sid]:self._offsets[sid + 1]]
+            return self._neighbors[self._offsets[sid] : self._offsets[sid + 1]]
         return self._EMPTY
 
 
@@ -252,7 +164,7 @@ def build_direct_links(tmp_dir: str) -> LinkGraph:
 
     neighbors = array("i", [0]) * (2 * len(src))
     cursor = array("q", offsets[:n])
-    for u, v in zip(src, dst):
+    for u, v in zip(src, dst, strict=True):
         cu = cursor[u]
         neighbors[cu] = v
         cursor[u] = cu + 1
@@ -279,52 +191,26 @@ def count_languages(tmp_dir: str) -> dict[str, int]:
 
 # --- Engine ---
 
-def _write_index_json(path: str, lang: str) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump({
-            "title":          f"Tatoeba Example Bank ({lang.upper()})",
-            "revision":       f"tatoeba_{time.strftime('%Y%m%d')}",
-            "format":         3,
-            "sequenced":      False,
-            "author":         "Tatoeba.org Contributors",
-            "attribution":    "Creative Commons Attribution 2.0 France (CC-BY 2.0 FR)",
-            "url":            "https://tatoeba.org",
-            "description":   (f"Comprehensive example sentence bank for {lang} from the Tatoeba "
-                              f"Project. Includes community-verified translations, audio download "
-                              f"links, and contributor proficiency metrics."),
-            "sourceLanguage": lang,
-            "isUpdatable":    True,
-            "indexUrl":       f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/latest/download/index_{lang}.json",
-            "downloadUrl":    f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/latest/download/tatoeba_dadb_{lang}.zip",
-        }, f, indent=2, ensure_ascii=False)
 
-
-def _build_tag_bank(unique_tags: Iterable[str],
-                    licenses: Iterable[str],
-                    creators: Iterable[str]) -> list[list]:
+def _build_tag_bank(unique_tags: Iterable[str], licenses: Iterable[str], creators: Iterable[str]) -> list[list]:
     bank: list[list] = []
-    bank.extend([t, "sentence_tag",  1, f"Tatoeba: {t}", 0] for t in sorted(unique_tags))
-    bank.extend([l, "audio_license", 2, f"License: {l}", 0] for l in sorted(licenses))
-    bank.extend([c, "audio_creator", 3, f"Voice: {c}",    0] for c in sorted(creators))
+    bank.extend([t, "sentence_tag", 1, f"Tatoeba: {t}", 0] for t in sorted(unique_tags))
+    bank.extend([lic, "audio_license", 2, f"License: {lic}", 0] for lic in sorted(licenses))
+    bank.extend([c, "audio_creator", 3, f"Voice: {c}", 0] for c in sorted(creators))
     return bank
 
 
-def run_pipeline(target_langs: list[str] | None,
-                 top_n: int | None,
-                 main_lang: str | None,
-                 delete_unzipped: bool,
-                 include_tags: bool,
-                 tmp_dir: str,
-                 out_dir: str) -> None:
+def run_pipeline(
+    target_langs: list[str] | None, main_lang: str | None, include_tags: bool, tmp_dir: str, out_dir: str
+) -> dict[str, Path]:
+    """Writes the tag and example banks of every language in `target_langs` (all if None) to `out_dir/dict_{lang}/`.
+
+    `tmp_dir` holds the Tatoeba exports. Returns the bank folder of each language.
+    """
     os.makedirs(out_dir, exist_ok=True)
 
-    if top_n and not target_langs:
-        ranked = sorted(count_languages(tmp_dir).items(), key=lambda x: x[1], reverse=True)
-        target_langs = [lang for lang, _ in ranked[:top_n]]
-        print(f"   Top {top_n} languages selected: {', '.join(target_langs)}")
-
-    skills    = parse_user_skills(tmp_dir)
-    reviews   = parse_user_reviews(tmp_dir)
+    skills = parse_user_skills(tmp_dir)
+    reviews = parse_user_reviews(tmp_dir)
     sentence_tags, unique_tags = parse_tags(tmp_dir) if include_tags else ({}, set())
     audio_meta, creators, licenses = parse_audio_meta(tmp_dir)
 
@@ -401,13 +287,11 @@ def run_pipeline(target_langs: list[str] | None,
         if state is None:
             l_dir = os.path.join(out_dir, f"dict_{lang}")
             os.makedirs(l_dir, exist_ok=True)
-            _write_index_json(os.path.join(l_dir, "index.json"), lang)
             with open(os.path.join(l_dir, "tag_bank_1.json"), "w", encoding="utf-8") as f:
                 json.dump(tag_bank, f, ensure_ascii=False)
             chunk = open(os.path.join(l_dir, "example_bank_1.json"), "w", encoding="utf-8")
             chunk.write("[\n")
-            state = lang_states[lang] = {"f": chunk, "count": 0, "total": 0,
-                                         "idx": 1, "dir": l_dir, "first": True}
+            state = lang_states[lang] = {"f": chunk, "count": 0, "total": 0, "idx": 1, "dir": l_dir, "first": True}
 
         if state["count"] >= CHUNK_SIZE:
             state["f"].write("\n]\n")
@@ -415,8 +299,7 @@ def run_pipeline(target_langs: list[str] | None,
             state["idx"] += 1
             state["count"] = 0
             state["first"] = True
-            state["f"] = open(os.path.join(state["dir"], f"example_bank_{state['idx']}.json"),
-                              "w", encoding="utf-8")
+            state["f"] = open(os.path.join(state["dir"], f"example_bank_{state['idx']}.json"), "w", encoding="utf-8")
             state["f"].write("[\n")
 
         merged_sids = primary_to_sids[primary]
@@ -430,10 +313,12 @@ def run_pipeline(target_langs: list[str] | None,
         for s in merged_sids:
             for a in audio_meta.get(s, []):
                 a_tags = [t for t in (a["user"], a["lic"]) if t]
-                merged_audio.append({
-                    "source":  f"https://tatoeba.org/audio/download/{a['id']}",
-                    "tags": list(dict.fromkeys(a_tags)),  # ordered dedupe
-                })
+                merged_audio.append(
+                    {
+                        "source": f"https://tatoeba.org/audio/download/{a['id']}",
+                        "tags": list(dict.fromkeys(a_tags)),  # ordered dedupe
+                    }
+                )
 
         stats: list[dict] = []
         if total_review:
@@ -449,9 +334,9 @@ def run_pipeline(target_langs: list[str] | None,
         obj = {
             "groupIds": sorted(group_ids),
             "sentence": text,
-            "tags":     sorted(merged_tags),
-            "stats":    stats,
-            "audios":   merged_audio,
+            "tags": sorted(merged_tags),
+            "stats": stats,
+            "audios": merged_audio,
         }
 
         if not state["first"]:
@@ -466,55 +351,9 @@ def run_pipeline(target_langs: list[str] | None,
 
     del links, sid_to_lang, sid_to_primary, primary_to_sids, primary_info
 
-    # --- 3. Zip ---
-    print("8. Zipping results...")
-    lang_counts: dict[str, int] = {}
-    for lang, state in lang_states.items():
+    lang_dirs: dict[str, Path] = {}
+    for lang, state in sorted(lang_states.items()):
         state["f"].write("\n]\n")
         state["f"].close()
-        lang_counts[lang] = state["total"]
-        zip_path = os.path.join(out_dir, f"tatoeba_dadb_{lang}.zip")
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            for root, _, files in os.walk(state["dir"]):
-                for file in files:
-                    full = os.path.join(root, file)
-                    zf.write(full, os.path.relpath(full, state["dir"]))
-        if delete_unzipped:
-            shutil.rmtree(state["dir"])
-
-    stats_path = os.path.join(out_dir, "stats.json")
-    with open(stats_path, "w", encoding="utf-8") as f:
-        json.dump(lang_counts, f, indent=2, ensure_ascii=False)
-    print(f"   Wrote sentence counts to {stats_path}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--langs", nargs="+",
-                        help="Specific language codes to process (e.g. jpn eng)")
-    parser.add_argument("--top", type=int, default=None,
-                        help="Only process the top N most frequent languages (ignored when --langs is set)")
-    parser.add_argument("--main", default=None,
-                        help="Main language code. Sentences in other languages are kept only when "
-                             "they have a direct translation in this language.")
-    parser.add_argument("--delete-unzipped", action="store_true",
-                        help="Delete unzipped JSON files after creating ZIP archives")
-    parser.add_argument("--include-tags", action="store_true",
-                        help="Parse and include noisy Tatoeba tags")
-    parser.add_argument("--tmp-dir", default="./tmp/", help="Temporary directory for downloads")
-    parser.add_argument("--out-dir", default="./out/", help="Output directory for generated dictionaries")
-    args = parser.parse_args()
-
-    print("")
-    print("========================================")
-    print("TATOEBA TO DAKANJI DICTIONARY BUILDER")
-    print("========================================")
-    print(f"Target Languages: {', '.join(args.langs) if args.langs else f'top {args.top}' if args.top else 'ALL'}")
-    print(f"Main Language:    {args.main if args.main else 'N/A (include all)'}")
-    print(f"Include Tags:     {args.include_tags}")
-    print(f"Delete Unzipped:  {args.delete_unzipped}\n")
-    print("")
-
-    download_data(args.include_tags, args.tmp_dir)
-    run_pipeline(args.langs, args.top, args.main, args.delete_unzipped,
-                 args.include_tags, args.tmp_dir, args.out_dir)
+        lang_dirs[lang] = Path(state["dir"])
+    return lang_dirs
