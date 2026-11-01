@@ -19,7 +19,7 @@ dev = [
 package = false
 
 [tool.uv.sources]
-dalang-dict-utils = { git = "https://github.com/dariyooo/dalang-dict-utils", tag = "v0.3.2" }
+dalang-dict-utils = { git = "https://github.com/dariyooo/dalang-dict-utils", tag = "v0.3.3" }
 
 [tool.ruff]
 line-length = 120
