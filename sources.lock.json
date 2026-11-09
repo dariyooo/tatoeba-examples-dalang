@@ -3,35 +3,35 @@
     "name": "links.tar.bz2",
     "address": "https://downloads.tatoeba.org/exports/links.tar.bz2",
     "kind": "url",
-    "version": "2026-11-01",
-    "sha256": "69a55057566127a4c2f5cd618ae47167cb66972d67a3f8f39f368c106cd6f50c"
+    "version": "2026-11-09",
+    "sha256": "c8ed4ce074b8a07538c8ca464e97975c61ee379636e45dbc5c464b2943493ab6"
   },
   "sentences_detailed.tar.bz2": {
     "name": "sentences_detailed.tar.bz2",
     "address": "https://downloads.tatoeba.org/exports/sentences_detailed.tar.bz2",
     "kind": "url",
-    "version": "2026-11-01",
-    "sha256": "8080a162f74f427d96154d8e0676d94d3c0b80f7642876f02fb5ed2fce6d017f"
+    "version": "2026-11-09",
+    "sha256": "8ef43518865e793f440be783fb4081dc7bc57386b84dda170fa864c863bb1958"
   },
   "sentences_with_audio.tar.bz2": {
     "name": "sentences_with_audio.tar.bz2",
     "address": "https://downloads.tatoeba.org/exports/sentences_with_audio.tar.bz2",
     "kind": "url",
-    "version": "2026-11-01",
-    "sha256": "492eb77db4af8f8fa3cfe354ea645ef41bdb5a31757926153430fed7b13f3b22"
+    "version": "2026-11-09",
+    "sha256": "4dafed8821968faeae9b56e7a70718ca32549771157ce3d88432850ebb56aa1d"
   },
   "user_languages.tar.bz2": {
     "name": "user_languages.tar.bz2",
     "address": "https://downloads.tatoeba.org/exports/user_languages.tar.bz2",
     "kind": "url",
-    "version": "2026-11-01",
-    "sha256": "1c4ce6cc013daf2b33d116dc2f4271fd709d23729ebbbfc286546dfd2ef7080b"
+    "version": "2026-11-09",
+    "sha256": "00b6ab409e53166ecef04d16dcd0857786cf68234d7018934c4f4f15828a10f9"
   },
   "users_sentences.csv": {
     "name": "users_sentences.csv",
     "address": "https://downloads.tatoeba.org/exports/users_sentences.csv",
     "kind": "url",
-    "version": "2026-11-01",
-    "sha256": "e3219c3f1a9fbd2962f068ec4487d80af1a00cb66bd8d9083e11c2c41f206a1d"
+    "version": "2026-11-09",
+    "sha256": "11e7e7dd58a7ac9f6ce8f24bc4e7493d4dfccd1dcdb2b2af912a2a6a7432773d"
   }
 }
