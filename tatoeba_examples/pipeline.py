@@ -197,11 +197,16 @@ def count_languages(tmp_dir: str) -> dict[str, int]:
 # --- Engine ---
 
 
+# Categories starting with `.` are hidden in DaKanji's tag menu, the tag still shows on its recording
+AUDIO_LICENSE_CATEGORY = ".audio_license"
+AUDIO_CREATOR_CATEGORY = ".audio_creator"
+
+
 def _build_tag_bank(unique_tags: Iterable[str], licenses: Iterable[str], creators: Iterable[str]) -> list[list]:
     bank: list[list] = []
     bank.extend([t, "sentence_tag", 1, f"Tatoeba: {t}", 0] for t in sorted(unique_tags))
-    bank.extend([lic, "audio_license", 2, f"License: {lic}", 0] for lic in sorted(licenses))
-    bank.extend([c, "audio_creator", 3, f"Voice: {c}", 0] for c in sorted(creators))
+    bank.extend([lic, AUDIO_LICENSE_CATEGORY, 2, f"License: {lic}", 0] for lic in sorted(licenses))
+    bank.extend([c, AUDIO_CREATOR_CATEGORY, 3, f"Voice: {c}", 0] for c in sorted(creators))
     return bank
 
 
