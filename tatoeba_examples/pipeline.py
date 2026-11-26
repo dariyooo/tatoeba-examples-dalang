@@ -90,7 +90,12 @@ def parse_tags(tmp_dir: str) -> tuple[dict[int, list[str]], set[str]]:
     return s_tags, unique
 
 
+# Tatoeba's exports write a missing value (SQL NULL) as `\N`, e.g. the speaker and license of a deleted account
+NULL = "\\N"
+
+
 def parse_audio_meta(tmp_dir: str) -> tuple[dict[int, list[dict]], set[str], set[str]]:
+    """Recordings per sentence id and all speakers and licenses, a missing (`\\N`) speaker or license is left out."""
     print("4. Parsing audio metadata...")
     s_audio: dict[int, list[dict]] = defaultdict(list)
     creators: set[str] = set()
@@ -100,8 +105,8 @@ def parse_audio_meta(tmp_dir: str) -> tuple[dict[int, list[dict]], set[str], set
         if len(parts) < 2:
             continue
         sid = int(parts[0])
-        user = parts[2] if len(parts) > 2 else ""
-        lic = parts[3] if len(parts) > 3 else ""
+        user = parts[2] if len(parts) > 2 and parts[2] != NULL else ""
+        lic = parts[3] if len(parts) > 3 and parts[3] != NULL else ""
         s_audio[sid].append({"id": parts[1], "user": user, "lic": lic})
         if user:
             creators.add(user)
