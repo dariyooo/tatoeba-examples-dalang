@@ -10,4 +10,4 @@ permissions:
 
 jobs:
   update:
-    uses: dariyooo/dalang-dict-authoring/.github/workflows/dict-update.yml@v0.4.2
+    uses: dariyooo/dalang-dict-authoring/.github/workflows/dict-update.yml@v0.5.0

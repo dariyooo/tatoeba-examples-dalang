@@ -22,8 +22,8 @@ wheels = [
 
 [[package]]
 name = "dalang-dict-utils"
-version = "0.4.2"
-source = { git = "https://github.com/dariyooo/dalang-dict-authoring?tag=v0.4.2#dc5c57b98d06758a9302daa71819e07b99ed2bfe" }
+version = "0.5.0"
+source = { git = "https://github.com/dariyooo/dalang-dict-authoring?tag=v0.5.0#1cc872d81c5799eec43018f4761913041e64d240" }
 dependencies = [
     { name = "jsonschema" },
 ]
@@ -292,7 +292,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "dalang-dict-utils", git = "https://github.com/dariyooo/dalang-dict-authoring?tag=v0.4.2" }]
+requires-dist = [{ name = "dalang-dict-utils", git = "https://github.com/dariyooo/dalang-dict-authoring?tag=v0.5.0" }]
 
 [package.metadata.requires-dev]
 dev = [
