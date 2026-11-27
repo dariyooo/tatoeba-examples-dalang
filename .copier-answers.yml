@@ -1,10 +1,12 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: v0.3.3
+_commit: v0.4.2
 _src_path: gh:dariyooo/dalang-dict-authoring
-dalang_dict_utils_tag: v0.3.3
+committed_outputs: ''
+dalang_dict_utils_tag: v0.4.2
 description: Example sentences from the Tatoeba corpus
 github_owner: dariyooo
 module_name: tatoeba_examples
+node_version: ''
 python_version: '3.12'
 repo_name: tatoeba-examples-dalang
 source_updates: true
